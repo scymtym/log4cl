@@ -544,10 +544,11 @@ context of the current application."
   "Submit message to logger appenders, and its parent logger"
   (let ((*log-event-time* nil)
         (*log-event-package-hint* package))
-    (labels ((log-to-logger-appenders (logger orig-logger level log-func)
+    (labels ((log-to-appender (appender)
+               )
+             (log-to-appenders (logger orig-logger level log-func)
                (let* ((state (current-state logger))
-                      (appenders
-                        (logger-state-appenders state)))
+                      (appenders (logger-state-appenders state)))
                  (dolist (appender appenders)
                    (with-slots (last-error last-ignored-error
                                 error-count ignored-error-count
