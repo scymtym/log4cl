@@ -14,7 +14,7 @@
 ;;; limitations under the License.
 
 (asdf:defsystem "log4cl"
-  :version "1.1.3"
+  :version (:read-file-form "version-string.sexp")
   :depends-on ("bordeaux-threads"
                #+sbcl "sb-posix") ; for SB-POSIX:GETPID in pattern-layout.lisp
   :components ((:module "src"
@@ -54,19 +54,18 @@
                 :pathname "src"
                 :depends-on ("src" "configuration")
                 :components ((:file "package"))))
-  :in-order-to ((test-op (test-op "log4cl/test"))))
+  :in-order-to ((test-op (test-op "log4cl/test")))
+  :perform (load-op :after (operation component)
+             (let ((package (find-package '#:log4cl)))
+               (when package
+                 (let* ((*package* package)
+                        (foo (find-symbol (symbol-name '#:%fix-root-logger-check))))
+                   (when foo
+                     (funcall foo)))))))
 
-(defmethod perform :after ((op load-op) (system (eql (find-system "log4cl"))))
-  (let ((package (find-package '#:log4cl)))
-    (when package
-      (let ((*package* package)
-            (foo (find-symbol (symbol-name '#:%fix-root-logger-check))))
-        (when foo
-          (funcall foo)))))
-  (values))
 
 (asdf:defsystem "log4cl/syslog"
-  :version "1.1.3"
+  :version (:read-file-form "version-string.sexp")
   :depends-on ("log4cl"
                #-sbcl "cl-syslog")
   :components ((:module "appender"
@@ -77,7 +76,7 @@
                              #-sbcl (:file "syslog-appender-cffi")))))
 
 (asdf:defsystem "log4cl/test"
-  :version "1.1.3"
+  :version (:read-file-form "version-string.sexp")
   :depends-on ("log4cl" "stefil")
   :components ((:module "tests"
                 :serial t
@@ -90,9 +89,8 @@
                              (:file "test-speed")
                              (:file "test-file-category")
                              (:file "test-compat")
-                             (:file "test-regressions")))))
-
-(defmethod perform ((op test-op) (system (eql (find-system :log4cl/test))))
-  (let ((*package* (find-package :log4cl-test)))
-    (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl-test::test)")))
-  (values))
+                             (:file "test-regressions"))))
+  :perform (test-op (operation component)
+             (let ((*package* (find-package :log4cl-test)))
+               (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl-test::test)")))
+             (values)))

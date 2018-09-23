@@ -14,7 +14,7 @@
 ;;; limitations under the License.
 
 (asdf:defsystem "log4cl-examples"
-  :version "1.1.3"
+  :version (:read-file-form "version-string.sexp")
   :depends-on ("log4cl" "swank")
   :components ((:file "examples/naming-examples")
                (:file "examples/customize-log-expr")))
