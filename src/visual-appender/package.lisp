@@ -2,4 +2,7 @@
   (:use
    #:clim-lisp
    ; #:let-plus
-   #:alexandria))
+   #:alexandria)
+
+  (:shadow
+   #:inspect))

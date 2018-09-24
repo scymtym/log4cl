@@ -494,7 +494,7 @@ context of the current application."
 (defun expand-log-with-level (env level args)
   "Returns a FORM that is used as an expansion of log-nnnnn macros"
   (declare (type fixnum level)
-	   (type list args))
+           (type list args))
   (with-package-naming-configuration (*package*)
     (multiple-value-bind (logger-form args)
         (resolve-logger-form *package* env args)
@@ -521,9 +521,9 @@ context of the current application."
                  (flet ((,log-stmt (,stream)
                           (declare (type stream ,stream))
                           (format ,stream ,@args)))
-                   (declare (dynamic-extent #',log-stmt))
+                   ; (declare (dynamic-extent #',log-stmt))
                    (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
-                     (log-with-logger ,logger-symbol ,level #',log-stmt ,pkg-hint))))
+                     (log-with-logger ,logger-symbol ,pkg-hint ,level #',log-stmt (list ,@args)))))
                (values))
             ;; null args means its being used for checking if level is enabled
             ;; in the (when (log-debug) ... complicated debug ... ) way
@@ -540,7 +540,7 @@ context of the current application."
   (make-array (- end start) :element-type (array-element-type seq)
                           :displaced-to seq :displaced-index-offset start))
 
-(defun log-with-logger (logger level log-func package)
+(defun log-with-logger (logger package level log-func arguments)
   "Submit message to logger appenders, and its parent logger"
   (let ((*log-event-time* nil)
         (*log-event-package-hint* package))
@@ -586,14 +586,14 @@ context of the current application."
                                             (incf error-count)
                                             (setf last-error e enabled nil)))
                                          (return)))))
-                                (progn (appender-do-append appender orig-logger level log-func)
+                                (progn (appender-do-append appender orig-logger level log-func arguments)
                                        (incf message-count))))
                          until done))))
                  (let ((parent (%logger-parent logger)))
                    (when (and parent (logger-state-additivity state))
-                     (log-to-logger-appenders parent orig-logger level log-func))))
+                     (log-to-appenders parent orig-logger level log-func))))
                (values)))
-      (log-to-logger-appenders logger logger level log-func)
+      (log-to-appenders logger logger level log-func)
       (values))))
 
 

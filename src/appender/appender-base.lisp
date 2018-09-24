@@ -19,7 +19,7 @@
 
 (defclass appender ()
   ((layout :initform (make-instance 'simple-layout)
-           :initarg :layout :accessor appender-layout)
+           :initarg :layout :accessor appender-layout) ; TODO remove
    (logger-count :initform 0 :accessor appender-logger-count
                  :type (integer 0))
    (loggers :initform nil :accessor appender-loggers)
@@ -69,7 +69,7 @@ opened."))
 own their stream in a such way, so its possible to reopen them"))
 
 
-(defgeneric appender-do-append (appender logger level log-func)
+(defgeneric appender-do-append (appender logger level log-func arguments)
   (:documentation
    "Writes the log message into the appender. Text of the log message
 is specified indirectly via LOG-FUNC argument, which will be a
@@ -93,7 +93,7 @@ Example:
    (values))
 
 Return value of this function is ignored")
-  (:method :around ((appender appender) logger level log-func)
+  (:method :around ((appender appender) logger level log-func arguments)
     (let ((filter (appender-filter appender)))
       (when (or (not filter)
                 (>= filter level))

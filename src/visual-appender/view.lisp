@@ -1,153 +1,77 @@
-(cl:in-package #:protocol.language-server.visual-analyzer)
+(cl:in-package #:log4cl.visual-appender)
 
-(clim:define-presentation-type document ())
+;;; Log level presentation type
 
-(clim:define-presentation-method clim:present ((object t) (type document) stream view &key)
-  (progn ; clim:surrounding-output-with-border (stream)
-    (clim:with-drawing-options (stream :text-style (clim:make-text-style :fix nil :small))
-      (let ((*print-level* 4)
-            (*print-length* 20))
-        (progn ; pprint-logical-block (stream (list object) :per-line-prefix "|")
-          (princ object stream))))))
+(clim:define-presentation-type log-level ())
+
+(clim:define-presentation-method clim:present ((object t) (type log-level) stream view &key)
+  (clim:with-drawing-options (stream :text-face :bold)
+    (princ (log4cl:log-level-to-string object) stream)))
+
+;;; Timestamp presentation type
+
+(clim:define-presentation-type timestamp ())
+
+(clim:define-presentation-method clim:present ((object t) (type timestamp) stream view &key)
+  (clim:with-drawing-options (stream :ink clim:+dark-violet+)
+    (princ object stream)))
+
+;;; Argument presentation type
+
+(clim:define-presentation-type argument ())
+
+(clim:define-presentation-method clim:present ((object t) (type argument) stream view &key)
+  (clim:with-drawing-options (stream :text-style (clim:make-text-style :fix nil :small))
+    (let ((*print-level* 4)
+          (*print-length* 20))
+      (princ object stream))))
 
 ;;;
 
-(clim:define-presentation-type message-kind ())
 
-(clim:define-presentation-method clim:present ((object t) (type message-kind) stream view &key)
-  (clim:with-drawing-options (stream :ink clim:+green+ :text-style (clim:make-text-style :fix nil nil))
-    (princ object stream)))
-
-(clim:define-presentation-type request-id ())
-
-(clim:define-presentation-method clim:present ((object t) (type request-id) stream view &key)
-  (clim:with-drawing-options (stream :ink clim:+blue+ :text-style (clim:make-text-style :fix :bold nil))
-    (princ object stream)))
-
-(clim:define-presentation-type interface ())
-
-(clim:define-presentation-method clim:present ((object t) (type interface) stream view &key)
-  (clim:with-drawing-options (stream :ink clim:+red+ :text-style (clim:make-text-style :fix nil nil))
-    (write-string object stream)))
+(defvar *as-presentation-pprint-dispatch*
+  (let* ((default-pprint-dispatch *print-pprint-dispatch*)
+         (dispatch                (copy-pprint-dispatch default-pprint-dispatch)))
+    (set-pprint-dispatch 't (lambda (stream object)
+                              (let ((*print-pprint-dispatch* default-pprint-dispatch)
+                                    (stream (sb-pretty::pretty-stream-target stream)))
+                                (clim:with-drawing-options (stream :ink clim:+dark-blue+)
+                                 (clim:present object 'argument :stream stream ; :view view
+                                                                :single-box t
+                                                                ))))
+                         100 dispatch)
+    dispatch))
 
 (clim:define-presentation-type message ())
 
-(clim:define-presentation-method clim:present ((object protocol.language-server.connection::error)
+(clim:define-presentation-method clim:present ((object message)
                                                (type   message)
                                                stream
                                                view
                                                &key)
   (clim:surrounding-output-with-border
       (stream :shape                :rounded
-              :radius               16
-              :radius-left          0
-              :radius-bottom        0
-              :background           clim:+lightpink+
+              :background           clim:+gray95+
               :highlight-background clim:+lightgray+
               :shadow               clim:+darkgray+)
-    (clim:present "error" 'message-kind :stream stream :view view)
-    (terpri)
-    (write-string (protocol.language-server.connection::message object) stream)))
-
-(clim:define-presentation-method clim:present ((object protocol.language-server.connection::notification)
-                                               (type   message)
-                                               stream
-                                               view
-                                               &key)
-  (clim:surrounding-output-with-border
-      (stream :shape                :rounded
-              :radius               16
-              :radius-left          0
-              :radius-bottom        0
-              :background           clim:+white+
-              :highlight-background clim:+lightgray+
-              :shadow               clim:+darkgray+)
-    (clim:present "notification" 'message-kind :stream stream :view view)
+    (clim:present (level object) 'log-level :stream stream :view view)
     (write-string " " stream)
-    (clim:present (protocol.language-server.connection::method object) 'interface
-                  :stream stream :view view)
+    (clim:present (timestamp object) 'timestamp :stream stream :view view)
     (terpri stream)
-    (loop :for (key value) :on (protocol.language-server.connection::arguments object) :by #'cddr
-          :do (clim:present key 'message-kind :stream stream :view view)
-              (format stream "~%  ")
-              (clim:present value 'document :stream stream :view view)
-              (terpri stream))))
+    (clim:surrounding-output-with-border (stream :padding 1
+                                                 :background clim:+lightyellow1+)
+      (clim:with-text-family (stream :fix)
+        (let ((*print-pprint-dispatch* *as-presentation-pprint-dispatch*))
+          (funcall (format-control object) stream))))
+    #+no (terpri stream)
+    #+no (clim:with-text-family (stream :fix)
+      (clim:formatting-item-list (stream)
+        (loop :for argument :in (rest (arguments object))
+              :do (clim:formatting-cell (stream)
+                    (clim:present argument 'argument :stream stream :view view :single-box t)))))))
 
-(clim:define-presentation-method clim:present ((object protocol.language-server.connection::request)
-                                               (type   message)
-                                               stream
-                                               view
-                                               &key)
-  (clim:surrounding-output-with-border
-      (stream :shape                :rounded
-              :radius               16
-              :radius-left          0
-              :background           clim:+white+
-              :highlight-background clim:+lightgray+
-              :shadow               clim:+darkgray+)
-    (clim:present "request" 'message-kind :stream stream :view view)
-    (write-string " " stream)
-    (clim:present (protocol.language-server.connection::id object) 'request-id
-                  :stream stream :view view)
-    (write-string " " stream)
-    (clim:present (protocol.language-server.connection::method object) 'interface
-                  :stream stream :view view)
-    (terpri stream)
-    (loop :for (key value) :on (protocol.language-server.connection::arguments object) :by #'cddr
-          :do (clim:present key 'message-kind :stream stream :view view)
-              (format stream "~%  ")
-              (clim:present value 'document :stream stream :view view)
-              (terpri stream))))
-
-(clim:define-presentation-method clim:present ((object protocol.language-server.connection::response)
-                                               (type   message)
-                                               stream
-                                               view
-                                               &key)
-  (clim:surrounding-output-with-border
-      (stream :shape                :rounded
-              :radius               16
-              :radius-right         0
-              :background           clim:+white+
-              :highlight-background clim:+lightgray+
-              :shadow               clim:+darkgray+)
-    (clim:present "response" 'message-kind :stream stream :view view)
-    (write-string " " stream)
-    (clim:present (protocol.language-server.connection::id object) 'request-id
-                  :stream stream :view view)
-    (terpri stream)
-    (clim:present (protocol.language-server.connection::value object) 'document :stream stream :view view)))
-
-(clim:define-presentation-method clim:present ((object t) (type message) stream view &key)
-  (let ((message object))
-    (clim:surrounding-output-with-border
-        (stream :shape                :rounded
-                :radius               16
-                :radius-right         0
-                :background           clim:+white+
-                :highlight-background clim:+lightgray+
-                :shadow               clim:+darkgray+)
-      (clim:present (first message) 'message-kind :stream stream)
-      (write-string " " stream)
-      (clim:present (second message) 'request-id :stream stream)
-      (write-string " " stream)
-      (terpri stream)
-      (case (first message)
-        (:reply
-         (clim:present (third message) 'request-id :stream stream)
-         (terpri stream)
-         (clim:present (fourth message) 'request-id :stream stream))))))
-
-(clim:define-presentation-type event ())
-
-(clim:define-presentation-method clim:present ((object t) (type event) stream view &key)
-  (clim:with-drawing-options (stream :ink        clim:+dark-magenta+
-                                     :text-style (clim:make-text-style nil nil :small))
-    (format stream "@~A~2%" (timestamp object)))
-  (clim:present (message object) 'message :stream stream :view view))
-
-(defun display-event (event stream)
-  (clim:present event 'event :stream stream))
+(defun display-message (message stream)
+  (clim:present message 'message :stream stream))
 
 #+not-needed? (defun display-trace (frame pane)
                 #+no (map nil (lambda (event)
@@ -183,44 +107,34 @@
     (let ((pattern (clim:make-pattern array (list clim:+white+ clim:+dark-grey+))))
       (clim:make-rectangular-tile pattern 10 10))))
 
-(defclass trace-pane (clim:application-pane)
-  ((%trace        :reader   trace
-                  :accessor %trace)
+(defclass log-session-pane (clim:application-pane)
+  ((%model        :reader   model
+                  :accessor %model)
    (%filter       :accessor filter
                   :initform nil)
    (%auto-scroll? :accessor auto-scroll?
                   :initform t))
   (:default-initargs
-   ;; :display-function 'display-trace
    :display-time nil
    ;; :background       *grid*
    ))
 
-(defmethod shared-initialize :after ((instance   trace-pane)
+(defmethod shared-initialize :after ((instance   log-session-pane)
                                      (slot-names t)
                                      &key
-                                     (trace nil trace-supplied?))
-  (when trace-supplied?
-    (setf (%trace instance) trace)))
+                                     (model nil model-supplied?))
+  (when model-supplied?
+    (setf (%model instance) model)))
 
 ;;;
 
-(defmethod position-for-added-event ((container     trace-pane)
-                                     (event         client->server-message)
-                                     (output-record t))
+(defmethod position-for-added-message ((container     log-session-pane)
+                                       (event         message)
+                                       (output-record t))
   (let ((history (clim:stream-output-history container)))
     (values 16 (+ (clim:bounding-rectangle-max-y history) 16))))
 
-(defmethod position-for-added-event ((container     trace-pane)
-                                     (event         server->client-message)
-                                     (output-record t))
-  (let ((history (clim:stream-output-history container)))
-    (values (- (clim:bounding-rectangle-width container)
-               (clim:bounding-rectangle-width output-record)
-               16)
-            (+ (clim:bounding-rectangle-max-y history) 16))))
-
-(defmethod scroll-to-bottom ((container trace-pane))
+(defmethod scroll-to-bottom ((container log-session-pane))
   (let* ((history  (clim:stream-output-history container))
          (viewport (climi::sheet-parent container))
          (amount   (- (clim:bounding-rectangle-height history)
@@ -228,44 +142,44 @@
                                                           container)))))
     (clim:scroll-extent container 0 (max 0 amount))))
 
-(defmethod add-event! :around ((container trace-pane) (event t))
+(defmethod add-message! :around ((container log-session-pane) (message t))
   (let ((filter (filter container)))
-    (when (or (not filter) (funcall filter event))
+    (when (or (not filter) (funcall filter message))
       (call-next-method))))
 
-(defmethod add-event! ((container trace-pane) (event t))
+(defmethod add-message! ((container log-session-pane) (message t))
   (let ((history (clim:stream-output-history container))
         (record  (clim:with-output-to-output-record (container)
-                   (display-event event container))))
+                   (display-message message container))))
     (setf (clim:output-record-position record)
-          (position-for-added-event container event record))
+          (position-for-added-message container message record))
     (clim:add-output-record record history)
     (clim:change-space-requirements container :height (clim:bounding-rectangle-max-y history))
     (when (auto-scroll? container)
       (scroll-to-bottom container))))
 
-(defmethod clear! ((container trace-pane))
-  (clear! (%trace container))
+(defmethod clear! ((container log-session-pane))
+  (clear! (model container))
   (clim:clear-output-record (clim:stream-output-history container))
   (clim:scroll-extent container 0 0))
 
-(defmethod redisplay ((container trace-pane))
+(defmethod redisplay ((container log-session-pane))
   (clim:clear-output-record (clim:stream-output-history container))
 
   (let ((filter (filter container)))
-    (map nil (lambda (event)
-               (when (or (not filter) (funcall filter event))
-                 (add-event! container event)))
-         (events (%trace container)))))
+    (map nil (lambda (message)
+               (when (or (not filter) (funcall filter message))
+                 (add-message! container message)))
+         (messages (model container)))))
 
 ;;; Filtering
 
-(defmethod (setf filter) :after ((new-value t) (pane trace-pane))
+(defmethod (setf filter) :after ((new-value t) (pane log-session-pane))
   (redisplay pane))
 
-;;;
+;;; Change events
 
-(defmethod (setf %trace) :after (new-value (object trace-pane))
+(defmethod (setf %model) :after (new-value (object log-session-pane))
   (setf (change-hook new-value)
         (lambda (index)
           (clim:queue-event object (make-instance 'changed-event
@@ -276,8 +190,8 @@
   ((index :initarg :index ; TODO carry the event instead of the index?
           :reader  index)))
 
-(defmethod clim:handle-event ((client trace-pane)
+(defmethod clim:handle-event ((client log-session-pane)
                               (event  changed-event))
-  (let* ((events  (events (%trace client)))
-         (event   (aref events (index event))))
-    (add-event! client event)))
+  (let* ((messages (messages (model client)))
+         (message  (aref messages (index event))))
+    (add-message! client message)))

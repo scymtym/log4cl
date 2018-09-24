@@ -43,11 +43,11 @@
   (:documentation "Appender that counts Count the number of times
 APPENDER-DO-APPEND was called, and writes its output to null sink"))
 
-(defmethod appender-do-append :before ((appender counting-appender) logger level log-func)
+(defmethod appender-do-append :before ((appender counting-appender) logger level log-func arguments)
   (declare (ignore logger level log-func))
   (incf (slot-value appender 'count)))
 
-(defmethod appender-do-append ((appender counting-appender) logger level log-func)
+(defmethod appender-do-append ((appender counting-appender) logger level log-func arguments)
   ;; we need to actually format the log message, to invoke any side effects
   ;; that formatting it may produce, this is used in testing error handling
   (with-output-to-string (s)
@@ -148,7 +148,7 @@ thread logs to REPL, while other threads log both to their
 Auto-deletes itself when encounters stream error"))
 
 (defmethod appender-do-append :around
-    ((this tricky-console-appender) logger level log-func)
+    ((this tricky-console-appender) logger level log-func arguments)
   (declare (ignore logger level log-func))
   (unless (eq (appender-stream this) (resolve-stream *global-console*))
     (call-next-method)))
@@ -245,12 +245,12 @@ time of the flush with TIME"
   (map nil #'save-appender (all-appenders all-hierarchies)))
 
 (defmethod appender-do-append :around
-    ((this serialized-appender) logger level log-func)
+    ((this serialized-appender) logger level log-func arguments)
   (declare (ignore logger level log-func))
   (bt:with-recursive-lock-held ((slot-value this '%lock))
     (call-next-method)))
 
-(defmethod appender-do-append ((this stream-appender) logger level log-func)
+(defmethod appender-do-append ((this stream-appender) logger level log-func arguments)
   (let ((stream (appender-stream this)))
     (with-slots (layout %output-since-flush) this
       (layout-to-stream layout stream logger level log-func)
@@ -262,7 +262,8 @@ time of the flush with TIME"
 (defmethod appender-do-append ((this fixed-stream-appender-base)
                                logger
                                level
-                               log-func)
+                               log-func
+                               arguments)
   (with-slots (layout stream %output-since-flush) this
     (layout-to-stream layout stream logger level log-func)
     (setf %output-since-flush t)
@@ -399,7 +400,7 @@ CHECK-PERIOD seconds "
   (* check-period (truncate (+ time check-period) check-period)))
 
 (defmethod appender-do-append :before ((this rolling-file-appender-base)
-                                       logger level log-func)
+                                       logger level log-func arguments)
   (declare (ignore logger level log-func))
   (let ((time (log-event-time)))
     (with-slots (%next-rollover-time %rollover-check-period) this
