@@ -1,0 +1,9 @@
+* Introduction
+
+* Tutorial
+
+  #+BEGIN_SRC lisp
+    (ql:quickload :log4cl.visual-appender)
+    (log4cl:add-appender log4cl:*root-logger* (make-instance 'log4cl.visual-appender::appender))
+    (log:error "test")
+  #+END_SRC
