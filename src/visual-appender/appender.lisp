@@ -1,5 +1,7 @@
 (cl:in-package #:log4cl.visual-appender)
 
+;;; `log-session'
+
 (clim:define-application-frame log-session ()
   ((%model :initarg :model
            :reader  model))
@@ -28,6 +30,8 @@
                        :documentation "Inspect the argument")
     (object)
   (list object))
+
+;;; `appender'
 
 (defclass appender (log4cl:appender)
   ((%model :initarg  :model

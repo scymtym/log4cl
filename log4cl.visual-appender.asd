@@ -6,5 +6,6 @@
                 :serial t
                 :components ((:file "package")
                              (:file "model")
+                             (:file "presentations")
                              (:file "view")
                              (:file "appender")))))
